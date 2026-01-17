@@ -1,25 +1,20 @@
 use embedded_graphics::{
-    mono_font::{MonoTextStyle, ascii::FONT_9X15_BOLD},
+    mono_font::{ascii::FONT_9X15_BOLD, MonoTextStyle},
     prelude::*,
-    primitives::{Line, PrimitiveStyle, Rectangle},
+    primitives::{PrimitiveStyle, Rectangle},
 };
 
 use super::colors::*;
+use super::icons;
 use crate::platform::{read_battery, RenderBuffer};
 
 pub const STATUSBAR_HEIGHT: i32 = 24;
 
-pub struct StatusBar {
-    pub signal: u8, // 0-4 bars
-    pub connected: bool,
-}
+pub struct StatusBar;
 
 impl Default for StatusBar {
     fn default() -> Self {
-        Self {
-            signal: 4,
-            connected: true,
-        }
+        Self
     }
 }
 
@@ -36,8 +31,9 @@ impl StatusBar {
         let minutes = ((secs_today % 3600) / 60) as u8;
         (hours, minutes)
     }
-
 }
+
+const ICON_SPACING: i32 = 6;
 
 impl StatusBar {
     pub fn render(&self, display: &mut RenderBuffer) {
@@ -57,136 +53,24 @@ impl StatusBar {
             .draw(display)
             .unwrap();
 
-        // Right side icons
-        let right_x = width as i32 - 10;
+        // Right side: draw icons from right to left, tracking cursor
+        let mut cursor = width as i32 - 6;
+
+        // Battery icon
+        let (battery, charging) = read_battery();
+        let battery_width = icons::battery::draw(display, cursor, battery, charging);
+        cursor -= battery_width + ICON_SPACING;
 
         // Clock (before icons) - 5 chars * 9px = 45px wide
         let (hours, minutes) = Self::read_time();
         let time_str = format!("{:02}:{:02}", hours, minutes);
-        embedded_graphics::text::Text::new(&time_str, Point::new(right_x - 115, 18), text_style)
-            .draw(display)
-            .unwrap();
-
-        // Battery icon (rightmost)
-        let (battery, charging) = read_battery();
-        self.draw_battery(display, right_x - 20, battery, charging);
-
-        // Signal icon
-        self.draw_signal(display, right_x - 45);
-
-        // Connection indicator
-        if self.connected {
-            self.draw_connected(display, right_x - 60);
-        }
-    }
-
-    fn draw_battery(&self, display: &mut RenderBuffer, x: i32, battery: u8, charging: bool) {
-        let color = if battery > 20 { GREEN } else { RED };
-        let y_offset = 8;
-
-        // Battery outline
-        Rectangle::new(Point::new(x, y_offset), Size::new(18, 10))
-            .into_styled(PrimitiveStyle::with_stroke(FOREGROUND, 1))
-            .draw(display)
-            .unwrap();
-
-        // Battery tip
-        Rectangle::new(Point::new(x + 18, y_offset + 3), Size::new(3, 4))
-            .into_styled(PrimitiveStyle::with_fill(FOREGROUND))
-            .draw(display)
-            .unwrap();
-
-        // Battery fill
-        let fill_width = (16 * battery as u32 / 100).max(1);
-        Rectangle::new(Point::new(x + 1, y_offset + 1), Size::new(fill_width, 8))
-            .into_styled(PrimitiveStyle::with_fill(color))
-            .draw(display)
-            .unwrap();
-
-        // Charging bolt (with dark outline for contrast)
-        if charging {
-            // Dark outline
-            for dx in -1i32..=1 {
-                for dy in -1i32..=1 {
-                    if dx != 0 || dy != 0 {
-                        Line::new(
-                            Point::new(x + 10 + dx, y_offset + dy),
-                            Point::new(x + 7 + dx, y_offset + 5 + dy),
-                        )
-                        .into_styled(PrimitiveStyle::with_stroke(BACKGROUND, 1))
-                        .draw(display)
-                        .unwrap();
-                        Line::new(
-                            Point::new(x + 7 + dx, y_offset + 5 + dy),
-                            Point::new(x + 11 + dx, y_offset + 5 + dy),
-                        )
-                        .into_styled(PrimitiveStyle::with_stroke(BACKGROUND, 1))
-                        .draw(display)
-                        .unwrap();
-                        Line::new(
-                            Point::new(x + 11 + dx, y_offset + 5 + dy),
-                            Point::new(x + 8 + dx, y_offset + 10 + dy),
-                        )
-                        .into_styled(PrimitiveStyle::with_stroke(BACKGROUND, 1))
-                        .draw(display)
-                        .unwrap();
-                    }
-                }
-            }
-            // Yellow bolt
-            Line::new(
-                Point::new(x + 10, y_offset),
-                Point::new(x + 7, y_offset + 5),
-            )
-            .into_styled(PrimitiveStyle::with_stroke(YELLOW, 1))
-            .draw(display)
-            .unwrap();
-            Line::new(
-                Point::new(x + 7, y_offset + 5),
-                Point::new(x + 11, y_offset + 5),
-            )
-            .into_styled(PrimitiveStyle::with_stroke(YELLOW, 1))
-            .draw(display)
-            .unwrap();
-            Line::new(
-                Point::new(x + 11, y_offset + 5),
-                Point::new(x + 8, y_offset + 10),
-            )
-            .into_styled(PrimitiveStyle::with_stroke(YELLOW, 1))
-            .draw(display)
-            .unwrap();
-        }
-    }
-
-    fn draw_signal(&self, display: &mut RenderBuffer, x: i32) {
-        for i in 0..4 {
-            let bar_height = 4 + i * 3;
-            let y = 20 - bar_height;
-            let color = if i < self.signal as i32 {
-                CYAN
-            } else {
-                COMMENT
-            };
-
-            Rectangle::new(Point::new(x + i * 4, y), Size::new(3, bar_height as u32))
-                .into_styled(PrimitiveStyle::with_fill(color))
-                .draw(display)
-                .unwrap();
-        }
-    }
-
-    fn draw_connected(&self, display: &mut RenderBuffer, x: i32) {
-        // Simple wifi-like icon using lines
-        for i in 0..3 {
-            let y = 16 - i * 4;
-            let half_width = 3 + i * 3;
-            Line::new(
-                Point::new(x + 6 - half_width, y),
-                Point::new(x + 6 + half_width, y),
-            )
-            .into_styled(PrimitiveStyle::with_stroke(PURPLE, 1))
-            .draw(display)
-            .unwrap();
-        }
+        let clock_width = 45;
+        embedded_graphics::text::Text::new(
+            &time_str,
+            Point::new(cursor - clock_width, 18),
+            text_style,
+        )
+        .draw(display)
+        .unwrap();
     }
 }

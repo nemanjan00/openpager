@@ -1,6 +1,7 @@
 //! UI components
 
 pub mod colors;
+mod icons;
 mod menu;
 mod statusbar;
 

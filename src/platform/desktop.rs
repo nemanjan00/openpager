@@ -1,4 +1,4 @@
-use minifb::{Key, Window, WindowOptions};
+use minifb::{Key, KeyRepeat, Window, WindowOptions};
 use std::io;
 
 use super::{Action, RenderBuffer};
@@ -35,7 +35,7 @@ impl DesktopPlatform {
     }
 
     pub fn poll(&mut self) -> Option<Action> {
-        for key in self.window.get_keys() {
+        for key in self.window.get_keys_pressed(KeyRepeat::No) {
             match key {
                 Key::Up => return Some(Action::Up),
                 Key::Down => return Some(Action::Down),
