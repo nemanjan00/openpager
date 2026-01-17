@@ -4,19 +4,8 @@ use std::io;
 use super::{Action, RenderBuffer};
 use crate::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
 
-fn rgb565_to_u32(pixel: u16) -> u32 {
-    let r = ((pixel >> 11) & 0x1F) as u32;
-    let g = ((pixel >> 5) & 0x3F) as u32;
-    let b = (pixel & 0x1F) as u32;
-    let r = (r << 3) | (r >> 2);
-    let g = (g << 2) | (g >> 4);
-    let b = (b << 3) | (b >> 2);
-    (r << 16) | (g << 8) | b
-}
-
 pub struct DesktopPlatform {
     window: Window,
-    buffer: Vec<u32>,
 }
 
 impl DesktopPlatform {
@@ -34,9 +23,7 @@ impl DesktopPlatform {
         )
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
 
-        let buffer = vec![0u32; (DISPLAY_WIDTH * DISPLAY_HEIGHT) as usize];
-
-        Ok(Self { window, buffer })
+        Ok(Self { window })
     }
 
     pub fn is_open(&self) -> bool {
@@ -57,11 +44,8 @@ impl DesktopPlatform {
     }
 
     pub fn draw(&mut self, render: &RenderBuffer) {
-        for (i, &pixel) in render.pixels_raw().iter().enumerate() {
-            self.buffer[i] = rgb565_to_u32(pixel);
-        }
         let _ = self.window.update_with_buffer(
-            &self.buffer,
+            render.pixels_raw(),
             DISPLAY_WIDTH as usize,
             DISPLAY_HEIGHT as usize,
         );

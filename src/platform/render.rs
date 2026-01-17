@@ -1,18 +1,16 @@
 use embedded_graphics_core::{
     draw_target::DrawTarget,
     geometry::{OriginDimensions, Size},
-    pixelcolor::{raw::RawU16, Rgb565},
-    prelude::RawData,
+    pixelcolor::{Rgb888, RgbColor},
     Pixel,
 };
 
 use crate::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
 
-/// Render buffer that implements embedded-graphics DrawTarget
 pub struct RenderBuffer {
     pub width: u32,
     pub height: u32,
-    pub pixels: Vec<u16>,
+    pub pixels: Vec<u32>,
 }
 
 impl RenderBuffer {
@@ -24,14 +22,9 @@ impl RenderBuffer {
         }
     }
 
-    pub fn pixels_raw(&self) -> &[u16] {
+    pub fn pixels_raw(&self) -> &[u32] {
         &self.pixels
     }
-}
-
-#[inline(always)]
-fn raw_rgb565(color: Rgb565) -> u16 {
-    RawU16::from(color).into_inner()
 }
 
 impl OriginDimensions for RenderBuffer {
@@ -41,7 +34,7 @@ impl OriginDimensions for RenderBuffer {
 }
 
 impl DrawTarget for RenderBuffer {
-    type Color = Rgb565;
+    type Color = Rgb888;
     type Error = core::convert::Infallible;
 
     fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
@@ -54,7 +47,7 @@ impl DrawTarget for RenderBuffer {
                 && coord.y >= 0
                 && coord.y < self.height as i32
             {
-                let raw = raw_rgb565(color);
+                let raw = (color.r() as u32) << 16 | (color.g() as u32) << 8 | color.b() as u32;
                 self.pixels[(coord.y as u32 * self.width + coord.x as u32) as usize] = raw;
             }
         }

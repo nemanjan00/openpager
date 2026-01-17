@@ -14,11 +14,20 @@ const BTN_BACK: u16 = 304;
 const KEY_POWER: u16 = 116;
 
 #[repr(C)]
-#[derive(Default)]
 struct FbVarScreeninfo {
     xres: u32,
     yres: u32,
     _padding: [u32; 38],
+}
+
+impl Default for FbVarScreeninfo {
+    fn default() -> Self {
+        Self {
+            xres: 0,
+            yres: 0,
+            _padding: [0; 38],
+        }
+    }
 }
 
 #[repr(C)]
@@ -74,17 +83,21 @@ impl DevicePlatform {
     }
 
     pub fn poll(&mut self) -> Option<Action> {
-        if let Ok(INPUT_EVENT_SIZE) = self.input_file.read(&mut self.input_buf) {
+        // Drain events until we find an actionable one or buffer is empty
+        while let Ok(INPUT_EVENT_SIZE) = self.input_file.read(&mut self.input_buf) {
             let event: InputEvent =
                 unsafe { std::ptr::read(self.input_buf.as_ptr() as *const _) };
             if event.type_ == EV_KEY && event.value == 1 {
-                return match event.code {
+                let action = match event.code {
                     KEY_UP => Some(Action::Up),
                     KEY_DOWN => Some(Action::Down),
                     BTN_FORWARD => Some(Action::Select),
                     BTN_BACK | KEY_POWER => Some(Action::Back),
                     _ => None,
                 };
+                if action.is_some() {
+                    return action;
+                }
             }
         }
         None
@@ -95,7 +108,7 @@ impl DevicePlatform {
         let src_w = render.width;
         let src_h = render.height;
 
-        // 90° CW rotation
+        // 90° CW rotation + RGB888 to RGB565 conversion
         for src_y in 0..src_h {
             for src_x in 0..src_w {
                 let fb_x = src_h - 1 - src_y;
@@ -103,7 +116,11 @@ impl DevicePlatform {
                 let src_idx = (src_y * src_w + src_x) as usize;
                 let dst_idx = (fb_y * self.fb_width + fb_x) as usize;
                 if dst_idx < self.fb_buffer.len() {
-                    self.fb_buffer[dst_idx] = src[src_idx];
+                    let rgb = src[src_idx];
+                    let r = ((rgb >> 16) & 0xFF) as u16;
+                    let g = ((rgb >> 8) & 0xFF) as u16;
+                    let b = (rgb & 0xFF) as u16;
+                    self.fb_buffer[dst_idx] = ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3);
                 }
             }
         }
