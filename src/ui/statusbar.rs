@@ -1,16 +1,16 @@
 use embedded_graphics::{
-    mono_font::{ascii::FONT_9X15_BOLD, MonoTextStyle},
+    mono_font::{MonoTextStyle, ascii::FONT_9X15_BOLD},
     prelude::*,
-    primitives::{PrimitiveStyle, Rectangle, Line},
+    primitives::{Line, PrimitiveStyle, Rectangle},
 };
 
 use super::colors::*;
-use crate::platform::RenderBuffer;
+use crate::platform::{read_battery, RenderBuffer};
 
 pub const STATUSBAR_HEIGHT: i32 = 24;
 
 pub struct StatusBar {
-    pub signal: u8,       // 0-4 bars
+    pub signal: u8, // 0-4 bars
     pub connected: bool,
 }
 
@@ -24,27 +24,19 @@ impl Default for StatusBar {
 }
 
 impl StatusBar {
-    fn read_battery() -> (u8, bool) {
-        #[cfg(target_arch = "mips")]
-        {
-            let mut capacity = 100u8;
-            let mut charging = false;
-            if let Ok(content) = std::fs::read_to_string("/sys/class/power_supply/bq27546-0/uevent") {
-                for line in content.lines() {
-                    if let Some(value) = line.strip_prefix("POWER_SUPPLY_CAPACITY=") {
-                        capacity = value.parse().unwrap_or(100);
-                    } else if let Some(value) = line.strip_prefix("POWER_SUPPLY_STATUS=") {
-                        charging = value == "Charging";
-                    }
-                }
-            }
-            (capacity, charging)
-        }
-        #[cfg(not(target_arch = "mips"))]
-        {
-            (100, false)
-        }
+    fn read_time() -> (u8, u8) {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let secs = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+        // Convert to hours:minutes (UTC, add timezone offset if needed)
+        let secs_today = secs % 86400;
+        let hours = ((secs_today / 3600) as u8) % 24;
+        let minutes = ((secs_today % 3600) / 60) as u8;
+        (hours, minutes)
     }
+
 }
 
 impl StatusBar {
@@ -68,8 +60,15 @@ impl StatusBar {
         // Right side icons
         let right_x = width as i32 - 10;
 
+        // Clock (before icons) - 5 chars * 9px = 45px wide
+        let (hours, minutes) = Self::read_time();
+        let time_str = format!("{:02}:{:02}", hours, minutes);
+        embedded_graphics::text::Text::new(&time_str, Point::new(right_x - 115, 18), text_style)
+            .draw(display)
+            .unwrap();
+
         // Battery icon (rightmost)
-        let (battery, charging) = Self::read_battery();
+        let (battery, charging) = read_battery();
         self.draw_battery(display, right_x - 20, battery, charging);
 
         // Signal icon
@@ -110,34 +109,52 @@ impl StatusBar {
             for dx in -1i32..=1 {
                 for dy in -1i32..=1 {
                     if dx != 0 || dy != 0 {
-                        Line::new(Point::new(x + 10 + dx, y_offset + dy), Point::new(x + 7 + dx, y_offset + 5 + dy))
-                            .into_styled(PrimitiveStyle::with_stroke(BACKGROUND, 1))
-                            .draw(display)
-                            .unwrap();
-                        Line::new(Point::new(x + 7 + dx, y_offset + 5 + dy), Point::new(x + 11 + dx, y_offset + 5 + dy))
-                            .into_styled(PrimitiveStyle::with_stroke(BACKGROUND, 1))
-                            .draw(display)
-                            .unwrap();
-                        Line::new(Point::new(x + 11 + dx, y_offset + 5 + dy), Point::new(x + 8 + dx, y_offset + 10 + dy))
-                            .into_styled(PrimitiveStyle::with_stroke(BACKGROUND, 1))
-                            .draw(display)
-                            .unwrap();
+                        Line::new(
+                            Point::new(x + 10 + dx, y_offset + dy),
+                            Point::new(x + 7 + dx, y_offset + 5 + dy),
+                        )
+                        .into_styled(PrimitiveStyle::with_stroke(BACKGROUND, 1))
+                        .draw(display)
+                        .unwrap();
+                        Line::new(
+                            Point::new(x + 7 + dx, y_offset + 5 + dy),
+                            Point::new(x + 11 + dx, y_offset + 5 + dy),
+                        )
+                        .into_styled(PrimitiveStyle::with_stroke(BACKGROUND, 1))
+                        .draw(display)
+                        .unwrap();
+                        Line::new(
+                            Point::new(x + 11 + dx, y_offset + 5 + dy),
+                            Point::new(x + 8 + dx, y_offset + 10 + dy),
+                        )
+                        .into_styled(PrimitiveStyle::with_stroke(BACKGROUND, 1))
+                        .draw(display)
+                        .unwrap();
                     }
                 }
             }
             // Yellow bolt
-            Line::new(Point::new(x + 10, y_offset), Point::new(x + 7, y_offset + 5))
-                .into_styled(PrimitiveStyle::with_stroke(YELLOW, 1))
-                .draw(display)
-                .unwrap();
-            Line::new(Point::new(x + 7, y_offset + 5), Point::new(x + 11, y_offset + 5))
-                .into_styled(PrimitiveStyle::with_stroke(YELLOW, 1))
-                .draw(display)
-                .unwrap();
-            Line::new(Point::new(x + 11, y_offset + 5), Point::new(x + 8, y_offset + 10))
-                .into_styled(PrimitiveStyle::with_stroke(YELLOW, 1))
-                .draw(display)
-                .unwrap();
+            Line::new(
+                Point::new(x + 10, y_offset),
+                Point::new(x + 7, y_offset + 5),
+            )
+            .into_styled(PrimitiveStyle::with_stroke(YELLOW, 1))
+            .draw(display)
+            .unwrap();
+            Line::new(
+                Point::new(x + 7, y_offset + 5),
+                Point::new(x + 11, y_offset + 5),
+            )
+            .into_styled(PrimitiveStyle::with_stroke(YELLOW, 1))
+            .draw(display)
+            .unwrap();
+            Line::new(
+                Point::new(x + 11, y_offset + 5),
+                Point::new(x + 8, y_offset + 10),
+            )
+            .into_styled(PrimitiveStyle::with_stroke(YELLOW, 1))
+            .draw(display)
+            .unwrap();
         }
     }
 
@@ -145,15 +162,16 @@ impl StatusBar {
         for i in 0..4 {
             let bar_height = 4 + i * 3;
             let y = 20 - bar_height;
-            let color = if i < self.signal as i32 { CYAN } else { COMMENT };
+            let color = if i < self.signal as i32 {
+                CYAN
+            } else {
+                COMMENT
+            };
 
-            Rectangle::new(
-                Point::new(x + i * 4, y),
-                Size::new(3, bar_height as u32),
-            )
-            .into_styled(PrimitiveStyle::with_fill(color))
-            .draw(display)
-            .unwrap();
+            Rectangle::new(Point::new(x + i * 4, y), Size::new(3, bar_height as u32))
+                .into_styled(PrimitiveStyle::with_fill(color))
+                .draw(display)
+                .unwrap();
         }
     }
 

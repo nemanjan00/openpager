@@ -1,12 +1,12 @@
 use embedded_graphics::{
-    mono_font::{ascii::FONT_10X20, MonoTextStyle},
+    mono_font::{MonoTextStyle, ascii::FONT_10X20},
     prelude::*,
-    primitives::{PrimitiveStyle, Rectangle},
+    primitives::{PrimitiveStyle, Rectangle, Triangle},
     text::Text,
 };
 
 use super::colors::*;
-use super::{View, ViewResult, STATUSBAR_HEIGHT};
+use super::{STATUSBAR_HEIGHT, View, ViewResult};
 use crate::platform::{Action, RenderBuffer};
 
 pub struct MenuItem {
@@ -20,10 +20,10 @@ pub enum MenuAction {
     None,
 }
 
-const ITEM_HEIGHT: i32 = 28;
-const TITLE_Y: i32 = STATUSBAR_HEIGHT + 20;
-const SEPARATOR_Y: i32 = STATUSBAR_HEIGHT + 28;
-const ITEM_START_Y: i32 = STATUSBAR_HEIGHT + 55;
+const ITEM_HEIGHT: i32 = 22;
+const TITLE_Y: i32 = STATUSBAR_HEIGHT + 16;
+const SEPARATOR_Y: i32 = STATUSBAR_HEIGHT + 20;
+const ITEM_START_Y: i32 = STATUSBAR_HEIGHT + 38;
 
 pub struct Menu {
     pub title: &'static str,
@@ -43,7 +43,9 @@ impl Menu {
     }
 
     fn visible_items(&self, height: u32) -> usize {
-        ((height as i32 - ITEM_START_Y) / ITEM_HEIGHT).max(1) as usize
+        // Round up to use available space at bottom
+        let available = height as i32 - ITEM_START_Y;
+        ((available + ITEM_HEIGHT - 1) / ITEM_HEIGHT).max(1) as usize
     }
 }
 
@@ -78,15 +80,23 @@ impl View for Menu {
         let selected_style = MonoTextStyle::new(&FONT_10X20, BACKGROUND);
         let visible = self.visible_items(bounds.size.height);
 
+        let has_scroll_up = self.scroll > 0;
+        let has_scroll_down = self.scroll + visible < self.items.len();
+        let has_arrows = has_scroll_up || has_scroll_down;
+        let selection_width = if has_arrows { width - 35 } else { width - 10 };
+
         for (vi, i) in (self.scroll..(self.scroll + visible).min(self.items.len())).enumerate() {
             let item = &self.items[i];
             let y = ITEM_START_Y + (vi as i32 * ITEM_HEIGHT);
 
             if i == self.selected {
-                Rectangle::new(Point::new(5, y - 18), Size::new(width - 30, 24))
-                    .into_styled(PrimitiveStyle::with_fill(CYAN))
-                    .draw(display)
-                    .unwrap();
+                Rectangle::new(
+                    Point::new(5, y - 15),
+                    Size::new(selection_width, ITEM_HEIGHT as u32 - 2),
+                )
+                .into_styled(PrimitiveStyle::with_fill(CYAN))
+                .draw(display)
+                .unwrap();
                 Text::new(item.label, Point::new(10, y), selected_style)
                     .draw(display)
                     .unwrap();
@@ -97,17 +107,30 @@ impl View for Menu {
             }
         }
 
-        // Draw scroll indicators if needed
-        if self.scroll > 0 {
-            Text::new("^", Point::new((width - 10) as i32, ITEM_START_Y), item_style)
-                .draw(display)
-                .unwrap();
+        // Draw scroll indicators if needed (triangles)
+        let arrow_x = (width - 18) as i32;
+        let arrow_size = 8i32;
+        if has_scroll_up {
+            let y = ITEM_START_Y - 10;
+            Triangle::new(
+                Point::new(arrow_x, y + arrow_size),
+                Point::new(arrow_x + arrow_size, y + arrow_size),
+                Point::new(arrow_x + arrow_size / 2, y),
+            )
+            .into_styled(PrimitiveStyle::with_fill(FOREGROUND))
+            .draw(display)
+            .unwrap();
         }
-        if self.scroll + visible < self.items.len() {
-            let y = ITEM_START_Y + ((visible - 1) as i32 * ITEM_HEIGHT);
-            Text::new("v", Point::new((width - 10) as i32, y), item_style)
-                .draw(display)
-                .unwrap();
+        if has_scroll_down {
+            let y = (bounds.size.height as i32) - arrow_size - 4;
+            Triangle::new(
+                Point::new(arrow_x, y),
+                Point::new(arrow_x + arrow_size, y),
+                Point::new(arrow_x + arrow_size / 2, y + arrow_size),
+            )
+            .into_styled(PrimitiveStyle::with_fill(FOREGROUND))
+            .draw(display)
+            .unwrap();
         }
     }
 

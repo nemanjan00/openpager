@@ -5,7 +5,7 @@ mod platform;
 mod ui;
 
 use platform::{Platform, RenderBuffer};
-use ui::{Menu, MenuItem, MenuAction, StatusBar, View, ViewResult};
+use ui::{Menu, MenuAction, MenuItem, StatusBar, View, ViewResult};
 
 fn main() {
     if let Err(e) = run() {
@@ -14,52 +14,139 @@ fn main() {
 }
 
 fn create_main_menu() -> Menu {
-    Menu::new("Main Menu", vec![
-        MenuItem { label: "Messages", action: MenuAction::SubMenu(create_messages_menu) },
-        MenuItem { label: "Settings", action: MenuAction::SubMenu(create_settings_menu) },
-        MenuItem { label: "About", action: MenuAction::SubMenu(create_about_menu) },
-        MenuItem { label: "Exit", action: MenuAction::Exit },
-    ])
+    Menu::new(
+        "Main Menu",
+        vec![
+            MenuItem {
+                label: "Messages",
+                action: MenuAction::SubMenu(create_messages_menu),
+            },
+            MenuItem {
+                label: "Settings",
+                action: MenuAction::SubMenu(create_settings_menu),
+            },
+            MenuItem {
+                label: "About",
+                action: MenuAction::SubMenu(create_about_menu),
+            },
+            MenuItem {
+                label: "Exit",
+                action: MenuAction::Exit,
+            },
+        ],
+    )
 }
 
 fn create_messages_menu() -> Menu {
-    Menu::new("Messages", vec![
-        MenuItem { label: "Inbox", action: MenuAction::SubMenu(create_inbox) },
-        MenuItem { label: "Sent", action: MenuAction::None },
-        MenuItem { label: "Drafts", action: MenuAction::None },
-    ])
+    Menu::new(
+        "Messages",
+        vec![
+            MenuItem {
+                label: "Inbox",
+                action: MenuAction::SubMenu(create_inbox),
+            },
+            MenuItem {
+                label: "Sent",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "Drafts",
+                action: MenuAction::None,
+            },
+        ],
+    )
 }
 
 fn create_inbox() -> Menu {
-    Menu::new("Inbox", vec![
-        MenuItem { label: "Server alert: CPU 95%", action: MenuAction::None },
-        MenuItem { label: "Backup completed", action: MenuAction::None },
-        MenuItem { label: "New user registered", action: MenuAction::None },
-        MenuItem { label: "Payment received", action: MenuAction::None },
-        MenuItem { label: "Disk space warning", action: MenuAction::None },
-        MenuItem { label: "SSL cert expiring", action: MenuAction::None },
-        MenuItem { label: "Deploy successful", action: MenuAction::None },
-        MenuItem { label: "Error: DB timeout", action: MenuAction::None },
-        MenuItem { label: "Weekly report ready", action: MenuAction::None },
-        MenuItem { label: "Security scan done", action: MenuAction::None },
-        MenuItem { label: "New comment on #42", action: MenuAction::None },
-        MenuItem { label: "Build failed: main", action: MenuAction::None },
-    ])
+    Menu::new(
+        "Inbox",
+        vec![
+            MenuItem {
+                label: "Server alert: CPU 95%",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "Backup completed",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "New user registered",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "Payment received",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "Disk space warning",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "SSL cert expiring",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "Deploy successful",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "Error: DB timeout",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "Weekly report ready",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "Security scan done",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "New comment on #42",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "Build failed: main",
+                action: MenuAction::None,
+            },
+        ],
+    )
 }
 
 fn create_settings_menu() -> Menu {
-    Menu::new("Settings", vec![
-        MenuItem { label: "Display", action: MenuAction::None },
-        MenuItem { label: "Sound", action: MenuAction::None },
-        MenuItem { label: "Network", action: MenuAction::None },
-    ])
+    Menu::new(
+        "Settings",
+        vec![
+            MenuItem {
+                label: "Display",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "Sound",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "Network",
+                action: MenuAction::None,
+            },
+        ],
+    )
 }
 
 fn create_about_menu() -> Menu {
-    Menu::new("About", vec![
-        MenuItem { label: "Version: 0.1.0", action: MenuAction::None },
-        MenuItem { label: "License: MIT", action: MenuAction::None },
-    ])
+    Menu::new(
+        "About",
+        vec![
+            MenuItem {
+                label: "Version: 0.1.0",
+                action: MenuAction::None,
+            },
+            MenuItem {
+                label: "License: MIT",
+                action: MenuAction::None,
+            },
+        ],
+    )
 }
 
 fn run() -> std::io::Result<()> {
@@ -74,7 +161,9 @@ fn run() -> std::io::Result<()> {
             match result {
                 ViewResult::None => {}
                 ViewResult::Push(view) => views.push(view),
-                ViewResult::Pop => { views.pop(); }
+                ViewResult::Pop => {
+                    views.pop();
+                }
                 ViewResult::Exit => break,
             }
         }

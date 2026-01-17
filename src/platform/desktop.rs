@@ -4,6 +4,10 @@ use std::io;
 use super::{Action, RenderBuffer};
 use crate::{DISPLAY_HEIGHT, DISPLAY_WIDTH};
 
+pub fn read_battery() -> (u8, bool) {
+    (100, false)
+}
+
 pub struct DesktopPlatform {
     window: Window,
 }
@@ -21,7 +25,7 @@ impl DesktopPlatform {
                 ..Default::default()
             },
         )
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        .map_err(io::Error::other)?;
 
         Ok(Self { window })
     }

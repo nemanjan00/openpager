@@ -1,8 +1,8 @@
 use embedded_graphics_core::{
+    Pixel,
     draw_target::DrawTarget,
     geometry::{OriginDimensions, Size},
     pixelcolor::{Rgb888, RgbColor},
-    Pixel,
 };
 
 use crate::{DISPLAY_HEIGHT, DISPLAY_WIDTH};

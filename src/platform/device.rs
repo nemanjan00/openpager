@@ -39,6 +39,42 @@ struct InputEvent {
     value: i32,
 }
 
+use std::sync::atomic::{AtomicU8, AtomicBool, AtomicU32, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+static BATTERY_CAPACITY: AtomicU8 = AtomicU8::new(100);
+static BATTERY_CHARGING: AtomicBool = AtomicBool::new(false);
+static BATTERY_LAST_READ: AtomicU32 = AtomicU32::new(0);
+
+const BATTERY_CACHE_SECS: u32 = 5;
+
+pub fn read_battery() -> (u8, bool) {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs() as u32)
+        .unwrap_or(0);
+
+    let last_read = BATTERY_LAST_READ.load(Ordering::Relaxed);
+    if now.wrapping_sub(last_read) >= BATTERY_CACHE_SECS {
+        BATTERY_LAST_READ.store(now, Ordering::Relaxed);
+
+        if let Ok(content) = std::fs::read_to_string("/sys/class/power_supply/bq27546-0/uevent") {
+            for line in content.lines() {
+                if let Some(value) = line.strip_prefix("POWER_SUPPLY_CAPACITY=") {
+                    BATTERY_CAPACITY.store(value.parse().unwrap_or(100), Ordering::Relaxed);
+                } else if let Some(value) = line.strip_prefix("POWER_SUPPLY_STATUS=") {
+                    BATTERY_CHARGING.store(value == "Charging", Ordering::Relaxed);
+                }
+            }
+        }
+    }
+
+    (
+        BATTERY_CAPACITY.load(Ordering::Relaxed),
+        BATTERY_CHARGING.load(Ordering::Relaxed),
+    )
+}
+
 pub struct DevicePlatform {
     fb_file: File,
     fb_width: u32,
@@ -85,8 +121,7 @@ impl DevicePlatform {
     pub fn poll(&mut self) -> Option<Action> {
         // Drain events until we find an actionable one or buffer is empty
         while let Ok(INPUT_EVENT_SIZE) = self.input_file.read(&mut self.input_buf) {
-            let event: InputEvent =
-                unsafe { std::ptr::read(self.input_buf.as_ptr() as *const _) };
+            let event: InputEvent = unsafe { std::ptr::read(self.input_buf.as_ptr() as *const _) };
             if event.type_ == EV_KEY && event.value == 1 {
                 let action = match event.code {
                     KEY_UP => Some(Action::Up),
