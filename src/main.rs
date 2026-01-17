@@ -3,42 +3,61 @@ pub const DISPLAY_HEIGHT: u32 = 200;
 
 mod display;
 
-#[cfg(target_os = "linux")]
-use display::{rgb_to_565, Framebuffer, RenderBuffer};
+use display::{rgb_to_565, Display, RenderBuffer};
 
 fn main() {
     println!("OpenPager starting...");
     println!("Internal resolution: {}x{}", DISPLAY_WIDTH, DISPLAY_HEIGHT);
 
-    #[cfg(target_os = "linux")]
-    {
-        match run_display() {
-            Ok(()) => println!("Display test complete"),
-            Err(e) => eprintln!("Display error: {}", e),
-        }
-    }
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        println!("No display backend available on this platform");
+    if let Err(e) = run() {
+        eprintln!("Error: {}", e);
     }
 }
 
-#[cfg(target_os = "linux")]
-fn run_display() -> std::io::Result<()> {
-    // Open framebuffer
-    let mut fb = Framebuffer::new(None)?;
-    println!(
-        "Framebuffer: {}x{} @ {}bpp",
-        fb.width(),
-        fb.height(),
-        fb.bpp()
-    );
-
-    // Create render buffer at internal resolution
+#[cfg(not(target_arch = "mips"))]
+fn run() -> std::io::Result<()> {
+    // Windowed mode for development
+    let mut display = Display::default_resolution(2)?;
     let mut render = RenderBuffer::default_resolution();
 
+    println!("Window: {}x{}", display.width(), display.height());
+
     // Draw test pattern
+    draw_test_pattern(&mut render);
+    render.blit(&mut display);
+    display.update()?;
+
+    // Keep window open
+    while display.is_open() {
+        display.update()?;
+        std::thread::sleep(std::time::Duration::from_millis(16));
+    }
+
+    Ok(())
+}
+
+#[cfg(target_arch = "mips")]
+fn run() -> std::io::Result<()> {
+    // Framebuffer mode for embedded
+    let mut display = Display::new(None)?;
+    let mut render = RenderBuffer::default_resolution();
+
+    println!(
+        "Framebuffer: {}x{} @ {}bpp",
+        display.width(),
+        display.height(),
+        display.bpp()
+    );
+
+    // Draw test pattern
+    draw_test_pattern(&mut render);
+    render.blit_scaled(&mut display, 3); // 90° CCW rotation
+
+    println!("Test pattern displayed");
+    Ok(())
+}
+
+fn draw_test_pattern(render: &mut RenderBuffer) {
     let red = rgb_to_565(255, 0, 0);
     let green = rgb_to_565(0, 255, 0);
     let blue = rgb_to_565(0, 0, 255);
@@ -46,7 +65,7 @@ fn run_display() -> std::io::Result<()> {
 
     render.clear(0);
 
-    // Draw colored rectangles
+    // Draw colored quadrants
     for y in 0..100 {
         for x in 0..160 {
             render.set_pixel(x, y, red);
@@ -63,11 +82,4 @@ fn run_display() -> std::io::Result<()> {
             render.set_pixel(x, y, white);
         }
     }
-
-    // Blit to framebuffer (90° CCW rotation like DOOM port)
-    render.blit_scaled(&mut fb, 3);
-    fb.flush()?;
-
-    println!("Test pattern displayed");
-    Ok(())
 }
